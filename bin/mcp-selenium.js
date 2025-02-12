@@ -1,19 +1,30 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
+// Get the absolute path to the Python script
 const pythonScript = path.join(__dirname, '..', 'src', 'mcp_server_selenium', 'server.py');
 
-const python = spawn('python3', [pythonScript], {
-  stdio: 'inherit'
+// Make sure the Python script exists
+if (!fs.existsSync(pythonScript)) {
+    console.error(`Error: Could not find Python script at ${pythonScript}`);
+    process.exit(1);
+}
+
+// Make the script executable
+fs.chmodSync(pythonScript, '755');
+
+// Run the Python script
+const result = spawnSync('/usr/bin/python3', [pythonScript], {
+    stdio: 'inherit',
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
 });
 
-python.on('error', (err) => {
-  console.error('Failed to start Python script:', err);
-  process.exit(1);
-});
+if (result.error) {
+    console.error('Failed to start Python script:', result.error);
+    process.exit(1);
+}
 
-python.on('close', (code) => {
-  process.exit(code);
-});
+process.exit(result.status);
