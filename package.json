@@ -19,7 +19,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/angiejones/mcp-selenium"
+    "url": "git+https://github.com/angiejones/mcp-selenium.git"
   },
   "publishConfig": {
     "access": "public"
