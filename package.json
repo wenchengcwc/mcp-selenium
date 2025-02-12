@@ -1,9 +1,9 @@
 {
   "name": "@angiejones/mcp-selenium",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Model Context Protocol (MCP) server implementation for Selenium WebDriver",
   "bin": {
-    "mcp-selenium": "src/mcp_server_selenium/server.py"
+    "mcp-selenium": "bin/mcp-selenium.js"
   },
   "scripts": {
     "postinstall": "python3 -m pip install --user selenium webdriver-manager"
