@@ -1,5 +1,10 @@
 # MCP Selenium
 
+> [!CAUTION]
+> ## Still testing, not ready to use
+
+
+
 A Model Context Protocol (MCP) server implementation for Selenium WebDriver, enabling browser automation through standardized MCP clients.
 
 ```json
