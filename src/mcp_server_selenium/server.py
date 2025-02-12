@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import json
 import traceback
@@ -178,207 +179,168 @@ def handle_stdio():
                 
             try:
                 request = json.loads(line)
+                request_id = request.get("id")
                 
-                if request.get("type") == "initialize":
+                if request.get("method") == "initialize":
                     response = {
-                        "id": request.get("id"),
-                        "type": "success",
+                        "jsonrpc": "2.0",
+                        "id": request_id,
                         "result": {
                             "name": "selenium",
-                            "version": "0.1.0",
+                            "version": "0.1.1",
                             "tools": [
                                 {
                                     "name": "start_browser",
                                     "description": "Start a new browser session",
                                     "parameters": {
-                                        "browser": {
-                                            "type": "string",
-                                            "enum": ["chrome", "firefox"]
-                                        },
-                                        "options": {
-                                            "type": "object",
-                                            "properties": {
-                                                "headless": {"type": "boolean"},
-                                                "arguments": {
-                                                    "type": "array",
-                                                    "items": {"type": "string"}
+                                        "type": "object",
+                                        "properties": {
+                                            "browser": {
+                                                "type": "string",
+                                                "enum": ["chrome", "firefox"]
+                                            },
+                                            "options": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "headless": {"type": "boolean"},
+                                                    "arguments": {
+                                                        "type": "array",
+                                                        "items": {"type": "string"}
+                                                    }
                                                 }
                                             }
-                                        }
-                                    },
-                                    "required": ["browser"]
+                                        },
+                                        "required": ["browser"]
+                                    }
                                 },
                                 {
                                     "name": "navigate",
                                     "description": "Navigate to a URL",
                                     "parameters": {
-                                        "url": {
-                                            "type": "string",
-                                            "format": "uri"
-                                        }
-                                    },
-                                    "required": ["url"]
+                                        "type": "object",
+                                        "properties": {
+                                            "url": {
+                                                "type": "string",
+                                                "format": "uri"
+                                            }
+                                        },
+                                        "required": ["url"]
+                                    }
                                 },
                                 {
                                     "name": "find_element",
                                     "description": "Find an element on the page",
                                     "parameters": {
-                                        "by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"]
+                                        "type": "object",
+                                        "properties": {
+                                            "by": {
+                                                "type": "string",
+                                                "enum": ["id", "css", "xpath", "name", "tag", "class"]
+                                            },
+                                            "value": {"type": "string"},
+                                            "timeout": {"type": "integer", "default": 10}
                                         },
-                                        "value": {"type": "string"},
-                                        "timeout": {"type": "integer", "default": 10}
-                                    },
-                                    "required": ["by", "value"]
+                                        "required": ["by", "value"]
+                                    }
                                 },
                                 {
                                     "name": "click_element",
                                     "description": "Click on an element",
                                     "parameters": {
-                                        "by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"]
+                                        "type": "object",
+                                        "properties": {
+                                            "by": {
+                                                "type": "string",
+                                                "enum": ["id", "css", "xpath", "name", "tag", "class"]
+                                            },
+                                            "value": {"type": "string"},
+                                            "timeout": {"type": "integer", "default": 10}
                                         },
-                                        "value": {"type": "string"},
-                                        "timeout": {"type": "integer", "default": 10}
-                                    },
-                                    "required": ["by", "value"]
+                                        "required": ["by", "value"]
+                                    }
                                 },
                                 {
                                     "name": "type_text",
                                     "description": "Type text into an input element",
                                     "parameters": {
-                                        "by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"]
+                                        "type": "object",
+                                        "properties": {
+                                            "by": {
+                                                "type": "string",
+                                                "enum": ["id", "css", "xpath", "name", "tag", "class"]
+                                            },
+                                            "value": {"type": "string"},
+                                            "text": {"type": "string"},
+                                            "clear_first": {"type": "boolean", "default": True},
+                                            "timeout": {"type": "integer", "default": 10}
                                         },
-                                        "value": {"type": "string"},
-                                        "text": {"type": "string"},
-                                        "clear_first": {"type": "boolean", "default": True},
-                                        "timeout": {"type": "integer", "default": 10}
-                                    },
-                                    "required": ["by", "value", "text"]
-                                },
-                                {
-                                    "name": "hover",
-                                    "description": "Mouse hover over an element",
-                                    "parameters": {
-                                        "by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"]
-                                        },
-                                        "value": {"type": "string"},
-                                        "timeout": {"type": "integer", "default": 10}
-                                    },
-                                    "required": ["by", "value"]
-                                },
-                                {
-                                    "name": "drag_and_drop",
-                                    "description": "Drag and drop an element to a target location",
-                                    "parameters": {
-                                        "source_by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"]
-                                        },
-                                        "source_value": {"type": "string"},
-                                        "target_by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"]
-                                        },
-                                        "target_value": {"type": "string"},
-                                        "timeout": {"type": "integer", "default": 10}
-                                    },
-                                    "required": ["source_by", "source_value", "target_by", "target_value"]
-                                },
-                                {
-                                    "name": "double_click",
-                                    "description": "Double click on an element",
-                                    "parameters": {
-                                        "by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"]
-                                        },
-                                        "value": {"type": "string"},
-                                        "timeout": {"type": "integer", "default": 10}
-                                    },
-                                    "required": ["by", "value"]
-                                },
-                                {
-                                    "name": "right_click",
-                                    "description": "Right click on an element",
-                                    "parameters": {
-                                        "by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"]
-                                        },
-                                        "value": {"type": "string"},
-                                        "timeout": {"type": "integer", "default": 10}
-                                    },
-                                    "required": ["by", "value"]
-                                },
-                                {
-                                    "name": "press_key",
-                                    "description": "Press a keyboard key",
-                                    "parameters": {
-                                        "key": {
-                                            "type": "string",
-                                            "enum": ["ENTER", "TAB", "ESCAPE", "BACKSPACE", "DELETE", 
-                                                    "ARROW_DOWN", "ARROW_UP", "ARROW_LEFT", "ARROW_RIGHT"]
-                                        },
-                                        "by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"],
-                                            "description": "Optional: target element"
-                                        },
-                                        "value": {
-                                            "type": "string",
-                                            "description": "Optional: target element"
-                                        },
-                                        "timeout": {"type": "integer", "default": 10}
-                                    },
-                                    "required": ["key"]
-                                },
-                                {
-                                    "name": "upload_file",
-                                    "description": "Upload a file using a file input element",
-                                    "parameters": {
-                                        "by": {
-                                            "type": "string",
-                                            "enum": ["id", "css", "xpath", "name", "tag", "class"]
-                                        },
-                                        "value": {"type": "string"},
-                                        "file_path": {"type": "string"},
-                                        "timeout": {"type": "integer", "default": 10}
-                                    },
-                                    "required": ["by", "value", "file_path"]
+                                        "required": ["by", "value", "text"]
+                                    }
                                 }
                             ]
                         }
                     }
-                elif request.get("type") == "invoke":
-                    tool_name = request["tool"]
-                    params = request["parameters"]
-                    tool_method = getattr(server, tool_name)
-                    result = tool_method(**params)
-                    response = {
-                        "id": request.get("id"),
-                        "type": "success",
-                        "result": result
-                    }
+                elif request.get("method") == "invoke":
+                    params = request.get("params", {})
+                    tool_name = params.get("tool")
+                    tool_params = params.get("parameters", {})
+                    
+                    if not hasattr(server, tool_name):
+                        response = {
+                            "jsonrpc": "2.0",
+                            "id": request_id,
+                            "error": {
+                                "code": -32601,
+                                "message": f"Method not found: {tool_name}"
+                            }
+                        }
+                    else:
+                        try:
+                            tool_method = getattr(server, tool_name)
+                            result = tool_method(**tool_params)
+                            response = {
+                                "jsonrpc": "2.0",
+                                "id": request_id,
+                                "result": result
+                            }
+                        except Exception as e:
+                            response = {
+                                "jsonrpc": "2.0",
+                                "id": request_id,
+                                "error": {
+                                    "code": -32000,
+                                    "message": str(e)
+                                }
+                            }
                 else:
                     response = {
-                        "id": request.get("id"),
-                        "type": "error",
-                        "error": f"Unknown request type: {request.get('type')}"
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {
+                            "code": -32601,
+                            "message": f"Method not found: {request.get('method')}"
+                        }
                     }
                     
+            except json.JSONDecodeError as e:
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {
+                        "code": -32700,
+                        "message": "Parse error",
+                        "data": str(e)
+                    }
+                }
             except Exception as e:
                 traceback.print_exc(file=sys.stderr)
                 response = {
+                    "jsonrpc": "2.0",
                     "id": request.get("id"),
-                    "type": "error",
-                    "error": str(e)
+                    "error": {
+                        "code": -32000,
+                        "message": str(e)
+                    }
                 }
             
             sys.stdout.write(json.dumps(response) + "\n")
