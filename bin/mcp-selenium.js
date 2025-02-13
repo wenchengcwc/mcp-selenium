@@ -1,30 +1,29 @@
 #!/usr/bin/env node
 
-const { spawnSync } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+import { spawn } from 'child_process';
 
-// Get the absolute path to the Python script
-const pythonScript = path.join(__dirname, '..', 'src', 'mcp_server_selenium', 'server.py');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-// Make sure the Python script exists
-if (!fs.existsSync(pythonScript)) {
-    console.error(`Error: Could not find Python script at ${pythonScript}`);
-    process.exit(1);
-}
+const serverPath = resolve(__dirname, '../src/lib/server.js');
 
-// Make the script executable
-fs.chmodSync(pythonScript, '755');
-
-// Run the Python script
-const result = spawnSync('/usr/bin/python3', [pythonScript], {
-    stdio: 'inherit',
-    env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+// Start the server
+const child = spawn('node', [serverPath], {
+    stdio: 'inherit'
 });
 
-if (result.error) {
-    console.error('Failed to start Python script:', result.error);
+child.on('error', (error) => {
+    console.error(`Error starting server: ${error.message}`);
     process.exit(1);
-}
+});
 
-process.exit(result.status);
+// Handle process termination
+process.on('SIGTERM', () => {
+    child.kill('SIGTERM');
+});
+
+process.on('SIGINT', () => {
+    child.kill('SIGINT');
+});
