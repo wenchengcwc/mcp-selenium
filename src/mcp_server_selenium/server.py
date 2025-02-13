@@ -39,7 +39,7 @@ class SeleniumServer:
                 for arg in options.get("arguments", []):
                     chrome_options.add_argument(arg)
                 driver = webdriver.Chrome(
-                    executable_path=ChromeDriverManager().install(),
+                    service=webdriver.ChromeService(ChromeDriverManager().install()),
                     options=chrome_options
                 )
             elif browser == "firefox":
@@ -49,7 +49,7 @@ class SeleniumServer:
                 for arg in options.get("arguments", []):
                     firefox_options.add_argument(arg)
                 driver = webdriver.Firefox(
-                    executable_path=GeckoDriverManager().install(),
+                    service=webdriver.FirefoxService(GeckoDriverManager().install()),
                     options=firefox_options
                 )
             else:
