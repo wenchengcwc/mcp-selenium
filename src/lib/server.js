@@ -1,4 +1,3 @@
-import { createReadStream } from 'fs';
 import { SeleniumServer } from './selenium-server.js';
 
 const TOOL_DEFINITIONS = {
@@ -177,7 +176,7 @@ const TOOL_DEFINITIONS = {
 
 async function handleStdio() {
     const server = new SeleniumServer();
-    const rl = createReadStream(0);
+    const rl = process.stdin;
     let buffer = '';
 
     rl.on('data', async (chunk) => {
