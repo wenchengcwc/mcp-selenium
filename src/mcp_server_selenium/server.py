@@ -27,6 +27,9 @@ class SeleniumServer:
         self.drivers: Dict[str, WebDriver] = {}
         self.current_session: Optional[str] = None
 
+    # [Previous methods remain unchanged...]
+    # Keeping all the existing methods exactly as they are
+    
     def start_browser(self, browser: str, options: Dict[str, Any] = None) -> Dict[str, Any]:
         """Start a new browser session (returns dict with session_id)."""
         options = options or {}
@@ -458,9 +461,9 @@ def handle_stdio():
             break
         try:
             request = json.loads(line)
-            if request.get("method") == "initialize":
-                # We'll define the same sorts of tools as the Playwright approach
-                # with name, description, and parameters (JSON schema style)
+            method = request.get("method") or request.get("type")
+
+            if method == "initialize":
                 response = {
                     "jsonrpc": "2.0",
                     "id": request.get("id"),
@@ -644,9 +647,15 @@ def handle_stdio():
                 }
                 sys.stdout.write(json.dumps(response) + "\n")
                 sys.stdout.flush()
-            elif request.get("method") == "invoke":
-                tool_name = request.get("params", {}).get("tool")
-                params = request.get("params", {}).get("parameters", {})
+            elif method == "invoke":
+                # Handle both old and new parameter formats
+                if "tool" in request:
+                    tool_name = request["tool"]
+                    params = request.get("parameters", {})
+                else:
+                    params_obj = request.get("params", {})
+                    tool_name = params_obj.get("tool")
+                    params = params_obj.get("parameters", {})
 
                 # dispatch to the corresponding method
                 if tool_name == "start_browser":
@@ -754,7 +763,7 @@ def handle_stdio():
                     "id": request.get("id"),
                     "error": {
                         "code": -32601,
-                        "message": f"Unknown method: {request.get('method')}"
+                        "message": f"Unknown method: {method}"
                     }
                 }
                 sys.stdout.write(json.dumps(response) + "\n")
