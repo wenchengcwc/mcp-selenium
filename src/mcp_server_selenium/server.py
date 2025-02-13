@@ -19,16 +19,10 @@ from webdriver_manager.firefox import GeckoDriverManager
 
 import base64
 
-# We'll adopt the same idea of an array "content" with typed data,
-# and an "isError" boolean, to be consistent with the Playwright approach.
-
 class SeleniumServer:
     def __init__(self):
         self.drivers: Dict[str, WebDriver] = {}
         self.current_session: Optional[str] = None
-
-    # [Previous methods remain unchanged...]
-    # Keeping all the existing methods exactly as they are
     
     def start_browser(self, browser: str, options: Dict[str, Any] = None) -> Dict[str, Any]:
         """Start a new browser session (returns dict with session_id)."""
