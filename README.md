@@ -16,6 +16,22 @@ Start the server by running:
 mcp-selenium
 ```
 
+Or use with NPX in your MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "selenium": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@angiejones/mcp-selenium"
+      ]
+    }
+  }
+}
+```
+
 The server implements the Model Context Protocol and provides the following capabilities:
 
 - Browser session management (Chrome and Firefox)
