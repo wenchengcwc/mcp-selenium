@@ -458,12 +458,12 @@ def handle_stdio():
             break
         try:
             request = json.loads(line)
-            if request.get("type") == "initialize":
+            if request.get("method") == "initialize":
                 # We'll define the same sorts of tools as the Playwright approach
                 # with name, description, and parameters (JSON schema style)
                 response = {
+                    "jsonrpc": "2.0",
                     "id": request.get("id"),
-                    "type": "success",
                     "result": {
                         "name": "selenium",
                         "version": "0.2.0",
@@ -644,9 +644,9 @@ def handle_stdio():
                 }
                 sys.stdout.write(json.dumps(response) + "\n")
                 sys.stdout.flush()
-            elif request.get("type") == "invoke":
-                tool_name = request["tool"]
-                params = request.get("parameters", {})
+            elif request.get("method") == "invoke":
+                tool_name = request.get("params", {}).get("tool")
+                params = request.get("params", {}).get("parameters", {})
 
                 # dispatch to the corresponding method
                 if tool_name == "start_browser":
@@ -718,29 +718,44 @@ def handle_stdio():
                     result = server.take_screenshot()
                 else:
                     # unknown tool
-                    result = {
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": f"Unknown tool: {tool_name}"
-                            }
-                        ],
-                        "isError": True
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request.get("id"),
+                        "error": {
+                            "code": -32601,
+                            "message": f"Unknown tool: {tool_name}"
+                        }
                     }
+                    sys.stdout.write(json.dumps(response) + "\n")
+                    sys.stdout.flush()
+                    continue
 
-                response = {
-                    "id": request.get("id"),
-                    "type": "success" if not result.get("isError") else "error",
-                    "result": result
-                }
+                if result.get("isError"):
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request.get("id"),
+                        "error": {
+                            "code": -32000,
+                            "message": result["content"][0]["text"] if result["content"] else "Unknown error"
+                        }
+                    }
+                else:
+                    response = {
+                        "jsonrpc": "2.0",
+                        "id": request.get("id"),
+                        "result": result
+                    }
                 sys.stdout.write(json.dumps(response) + "\n")
                 sys.stdout.flush()
             else:
                 # unknown request type
                 response = {
+                    "jsonrpc": "2.0",
                     "id": request.get("id"),
-                    "type": "error",
-                    "error": f"Unknown request type: {request.get('type')}"
+                    "error": {
+                        "code": -32601,
+                        "message": f"Unknown method: {request.get('method')}"
+                    }
                 }
                 sys.stdout.write(json.dumps(response) + "\n")
                 sys.stdout.flush()
@@ -749,9 +764,12 @@ def handle_stdio():
         except Exception as e:
             traceback.print_exc(file=sys.stderr)
             response = {
+                "jsonrpc": "2.0",
                 "id": request.get("id"),
-                "type": "error",
-                "error": str(e)
+                "error": {
+                    "code": -32000,
+                    "message": str(e)
+                }
             }
             sys.stdout.write(json.dumps(response) + "\n")
             sys.stdout.flush()
