@@ -1,13 +1,9 @@
-import { Builder, By, Key, until } from 'selenium-webdriver';
-import { Options as ChromeOptions } from 'selenium-webdriver/chrome.js';
-import { Options as FirefoxOptions } from 'selenium-webdriver/firefox.js';
+import pkg from 'selenium-webdriver';
+const { Builder, By, Key, until } = pkg;
 import chrome from 'selenium-webdriver/chrome.js';
 import firefox from 'selenium-webdriver/firefox.js';
-import { promisify } from 'util';
-import { exec } from 'child_process';
-import { resolve } from 'path';
-
-const execAsync = promisify(exec);
+import { Options as ChromeOptions } from 'selenium-webdriver/chrome.js';
+import { Options as FirefoxOptions } from 'selenium-webdriver/firefox.js';
 
 export class SeleniumServer {
     constructor() {
@@ -15,25 +11,13 @@ export class SeleniumServer {
         this.currentSession = null;
     }
 
-    async _getDriverPath(browser) {
-        try {
-            // Use webdriver-manager to get the path to the latest driver
-            const { stdout } = await execAsync('webdriver-manager update --versions.standalone latest');
-            const driverPath = stdout.match(/driver.*?path: (.*?)$/m)?.[1];
-            return driverPath;
-        } catch (error) {
-            console.error('Error getting driver path:', error);
-            throw new Error('Failed to get WebDriver path');
-        }
-    }
-
     async startBrowser(browser, options = {}) {
         try {
             let builder = new Builder();
             let driver;
 
-            // Get the driver path from webdriver-manager
-            const driverPath = await this._getDriverPath(browser);
+            // Send initial status message
+            this._sendProgress('Initializing browser session...');
 
             if (browser === 'chrome') {
                 const chromeOptions = new ChromeOptions();
@@ -44,11 +28,10 @@ export class SeleniumServer {
                     options.arguments.forEach(arg => chromeOptions.addArguments(arg));
                 }
                 
-                const service = new chrome.ServiceBuilder(driverPath);
+                this._sendProgress('Setting up Chrome driver (this may take a moment on first run)...');
                 driver = await builder
                     .forBrowser('chrome')
                     .setChromeOptions(chromeOptions)
-                    .setChromeService(service)
                     .build();
             } else if (browser === 'firefox') {
                 const firefoxOptions = new FirefoxOptions();
@@ -59,11 +42,10 @@ export class SeleniumServer {
                     options.arguments.forEach(arg => firefoxOptions.addArguments(arg));
                 }
                 
-                const service = new firefox.ServiceBuilder(driverPath);
+                this._sendProgress('Setting up Firefox driver (this may take a moment on first run)...');
                 driver = await builder
                     .forBrowser('firefox')
                     .setFirefoxOptions(firefoxOptions)
-                    .setFirefoxService(service)
                     .build();
             } else {
                 return {
@@ -81,6 +63,8 @@ export class SeleniumServer {
             this.drivers.set(sessionId, driver);
             this.currentSession = sessionId;
 
+            this._sendProgress('Browser session started successfully!');
+
             return {
                 content: [
                     {
@@ -92,6 +76,7 @@ export class SeleniumServer {
                 isError: false
             };
         } catch (e) {
+            console.error('Error starting browser:', e);
             return {
                 content: [
                     {
@@ -104,390 +89,587 @@ export class SeleniumServer {
         }
     }
 
+    _sendProgress(message) {
+        console.error(message);
+    }
+
     async navigate(url) {
-        if (!this.currentSession) {
-            return {
-                content: [
-                    { type: 'text', text: 'No active browser session' }
-                ],
-                isError: true
-            };
-        }
         try {
-            await this.drivers.get(this.currentSession).get(url);
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            await driver.get(url);
             return {
                 content: [
                     {
                         type: 'text',
-                        text: `Navigated to: ${url}`
+                        text: `Navigated to ${url}`
                     }
                 ],
                 isError: false
             };
         } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error navigating: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
+            return this._handleError('Error navigating to URL', e);
         }
     }
 
     async findElement(by, value, timeout = 10000) {
         try {
-            const element = await this._getElement(by, value, timeout);
-            const tagName = await element.getTagName();
-            const text = await element.getText();
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
             
             return {
                 content: [
                     {
                         type: 'text',
-                        text: 'Element found.'
-                    },
-                    {
-                        type: 'text',
-                        text: `tag_name: ${tagName}, text: ${text}`
+                        text: 'Element found'
                     }
                 ],
                 isError: false
             };
         } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error finding element: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
+            return this._handleError('Error finding element', e);
         }
     }
 
     async clickElement(by, value, timeout = 10000) {
         try {
-            const element = await this._getElement(by, value, timeout);
-            await element.click();
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Clicked element located by ${by}=${value}`
-                    }
-                ],
-                isError: false
-            };
-        } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error clicking element: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
-        }
-    }
-
-    async typeText(by, value, text, clearFirst = true, timeout = 10000) {
-        try {
-            const element = await this._getElement(by, value, timeout);
-            if (clearFirst) {
-                await element.clear();
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
             }
-            await element.sendKeys(text);
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            await element.click();
+            
             return {
                 content: [
                     {
                         type: 'text',
-                        text: `Typed text into element located by ${by}=${value}`
+                        text: 'Element clicked'
                     }
                 ],
                 isError: false
             };
         } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error typing text: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
+            return this._handleError('Error clicking element', e);
         }
     }
 
-    async hover(by, value, timeout = 10000) {
+    async sendKeys(by, value, text, timeout = 10000) {
         try {
-            const element = await this._getElement(by, value, timeout);
-            const actions = this.drivers.get(this.currentSession).actions({ async: true });
-            await actions.move({ origin: element }).perform();
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            await element.clear();
+            await element.sendKeys(text);
+            
             return {
                 content: [
                     {
                         type: 'text',
-                        text: `Hovered over element located by ${by}=${value}`
+                        text: `Text "${text}" entered into element`
                     }
                 ],
                 isError: false
             };
         } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error hovering over element: ${e.message}`
-                    }
-                ],
-                isError: true
+            return this._handleError('Error entering text', e);
+        }
+    }
+
+    async sendSpecialKey(by, value, keyName, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            
+            // Map common key names to Selenium Key values
+            const keyMap = {
+                'enter': Key.ENTER,
+                'return': Key.RETURN,
+                'tab': Key.TAB,
+                'escape': Key.ESCAPE,
+                'space': Key.SPACE,
+                'backspace': Key.BACK_SPACE,
+                'delete': Key.DELETE,
+                'up': Key.ARROW_UP,
+                'down': Key.ARROW_DOWN,
+                'left': Key.ARROW_LEFT,
+                'right': Key.ARROW_RIGHT,
+                'pageup': Key.PAGE_UP,
+                'pagedown': Key.PAGE_DOWN,
+                'home': Key.HOME,
+                'end': Key.END
             };
+
+            const keyToSend = keyMap[keyName.toLowerCase()];
+            if (!keyToSend) {
+                throw new Error(`Unsupported special key: ${keyName}`);
+            }
+
+            await element.sendKeys(keyToSend);
+            
+            return {
+                content: [{ 
+                    type: 'text', 
+                    text: `Sent ${keyName} key to element`
+                }],
+                isError: false
+            };
+        } catch (e) {
+            return this._handleError('Error sending special key', e);
+        }
+    }
+
+    async clearElement(by, value, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            await element.clear();
+            
+            return {
+                content: [{ type: 'text', text: 'Element cleared' }],
+                isError: false
+            };
+        } catch (e) {
+            return this._handleError('Error clearing element', e);
+        }
+    }
+
+    async getElementText(by, value, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            const text = await element.getText();
+            
+            return {
+                content: [{ type: 'text', text }],
+                isError: false
+            };
+        } catch (e) {
+            return this._handleError('Error getting element text', e);
+        }
+    }
+
+    async getElementAttribute(by, value, attribute, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            const attributeValue = await element.getAttribute(attribute);
+            
+            return {
+                content: [{ type: 'text', text: attributeValue || '' }],
+                isError: false
+            };
+        } catch (e) {
+            return this._handleError('Error getting element attribute', e);
+        }
+    }
+
+    async isElementSelected(by, value, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            const isSelected = await element.isSelected();
+            
+            return {
+                content: [{ 
+                    type: 'text', 
+                    text: String(isSelected) 
+                }],
+                isError: false,
+                state: isSelected
+            };
+        } catch (e) {
+            return this._handleError('Error checking if element is selected', e);
+        }
+    }
+
+    async isElementEnabled(by, value, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            const isEnabled = await element.isEnabled();
+            
+            return {
+                content: [{ 
+                    type: 'text', 
+                    text: String(isEnabled)
+                }],
+                isError: false,
+                state: isEnabled
+            };
+        } catch (e) {
+            return this._handleError('Error checking if element is enabled', e);
+        }
+    }
+
+    async isElementDisplayed(by, value, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            const isDisplayed = await element.isDisplayed();
+            
+            return {
+                content: [{ 
+                    type: 'text', 
+                    text: String(isDisplayed)
+                }],
+                isError: false,
+                state: isDisplayed
+            };
+        } catch (e) {
+            return this._handleError('Error checking if element is displayed', e);
+        }
+    }
+
+    async selectCheckboxIfNotSelected(by, value, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            const isSelected = await element.isSelected();
+            
+            if (!isSelected) {
+                await element.click();
+                return {
+                    content: [{ 
+                        type: 'text', 
+                        text: 'Checkbox was unchecked and has been selected'
+                    }],
+                    isError: false
+                };
+            }
+            
+            return {
+                content: [{ 
+                    type: 'text', 
+                    text: 'Checkbox was already selected, no action needed'
+                }],
+                isError: false
+            };
+        } catch (e) {
+            return this._handleError('Error handling checkbox selection', e);
+        }
+    }
+
+    async unselectCheckboxIfSelected(by, value, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            const isSelected = await element.isSelected();
+            
+            if (isSelected) {
+                await element.click();
+                return {
+                    content: [{ 
+                        type: 'text', 
+                        text: 'Checkbox was checked and has been unselected'
+                    }],
+                    isError: false
+                };
+            }
+            
+            return {
+                content: [{ 
+                    type: 'text', 
+                    text: 'Checkbox was already unselected, no action needed'
+                }],
+                isError: false
+            };
+        } catch (e) {
+            return this._handleError('Error handling checkbox unselection', e);
         }
     }
 
     async dragAndDrop(sourceBy, sourceValue, targetBy, targetValue, timeout = 10000) {
         try {
-            const source = await this._getElement(sourceBy, sourceValue, timeout);
-            const target = await this._getElement(targetBy, targetValue, timeout);
-            const actions = this.drivers.get(this.currentSession).actions({ async: true });
-            await actions.dragAndDrop(source, target).perform();
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Dragged from ${sourceValue} to ${targetValue}`
-                    }
-                ],
-                isError: false
-            };
-        } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error dragging and dropping: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
-        }
-    }
-
-    async doubleClick(by, value, timeout = 10000) {
-        try {
-            const element = await this._getElement(by, value, timeout);
-            const actions = this.drivers.get(this.currentSession).actions({ async: true });
-            await actions.doubleClick(element).perform();
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Double-clicked element located by ${by}=${value}`
-                    }
-                ],
-                isError: false
-            };
-        } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error double-clicking: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
-        }
-    }
-
-    async rightClick(by, value, timeout = 10000) {
-        try {
-            const element = await this._getElement(by, value, timeout);
-            const actions = this.drivers.get(this.currentSession).actions({ async: true });
-            await actions.contextClick(element).perform();
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Right-clicked element located by ${by}=${value}`
-                    }
-                ],
-                isError: false
-            };
-        } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error right-clicking element: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
-        }
-    }
-
-    async pressKey(key, by = null, value = null, timeout = 10000) {
-        const keyMap = {
-            'ENTER': Key.RETURN,
-            'TAB': Key.TAB,
-            'ESCAPE': Key.ESCAPE,
-            'BACKSPACE': Key.BACK_SPACE,
-            'DELETE': Key.DELETE,
-            'ARROW_DOWN': Key.ARROW_DOWN,
-            'ARROW_UP': Key.ARROW_UP,
-            'ARROW_LEFT': Key.ARROW_LEFT,
-            'ARROW_RIGHT': Key.ARROW_RIGHT
-        };
-
-        if (!keyMap[key]) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Unsupported key: ${key}`
-                    }
-                ],
-                isError: true
-            };
-        }
-
-        try {
-            if (by && value) {
-                const element = await this._getElement(by, value, timeout);
-                await element.sendKeys(keyMap[key]);
-            } else {
-                const actions = this.drivers.get(this.currentSession).actions({ async: true });
-                await actions.sendKeys(keyMap[key]).perform();
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
             }
+
+            const sourceLocator = this._getLocator(sourceBy, sourceValue);
+            const targetLocator = this._getLocator(targetBy, targetValue);
+            
+            const sourceElement = await driver.wait(until.elementLocated(sourceLocator), timeout);
+            const targetElement = await driver.wait(until.elementLocated(targetLocator), timeout);
+            
+            const actions = driver.actions({ bridge: true });
+            await actions.dragAndDrop(sourceElement, targetElement).perform();
+            
             return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Pressed ${key}.`
-                    }
-                ],
+                content: [{ type: 'text', text: 'Dragged and dropped element' }],
                 isError: false
             };
         } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error pressing key: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
+            return this._handleError('Error performing drag and drop', e);
         }
     }
 
-    async uploadFile(by, value, filePath, timeout = 10000) {
+    async dragAndDropByOffset(sourceBy, sourceValue, xOffset, yOffset, timeout = 10000) {
         try {
-            const element = await this._getElement(by, value, timeout);
-            const absolutePath = resolve(filePath);
-            await element.sendKeys(absolutePath);
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const sourceLocator = this._getLocator(sourceBy, sourceValue);
+            const sourceElement = await driver.wait(until.elementLocated(sourceLocator), timeout);
+            
+            const actions = driver.actions({ bridge: true });
+            await actions
+                .dragAndDrop(sourceElement, { x: xOffset, y: yOffset })
+                .perform();
+            
             return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Uploaded file ${filePath} to element located by ${by}=${value}`
-                    }
-                ],
+                content: [{ type: 'text', text: `Dragged element by offset: x=${xOffset}, y=${yOffset}` }],
                 isError: false
             };
         } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error uploading file: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
+            return this._handleError('Error performing drag and drop by offset', e);
         }
     }
 
-    async takeScreenshot() {
-        if (!this.currentSession) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: 'No active browser session'
-                    }
-                ],
-                isError: true
-            };
-        }
+    async copyText(by, value, timeout = 10000) {
         try {
-            const screenshot = await this.drivers.get(this.currentSession).takeScreenshot();
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            
+            // Select all text
+            const platform = process.platform;
+            const cmdKey = platform === 'darwin' ? Key.COMMAND : Key.CONTROL;
+            
+            await element.click();
+            const actions = driver.actions({ bridge: true });
+            await actions
+                .keyDown(cmdKey)
+                .sendKeys('a')
+                .keyUp(cmdKey)
+                .keyDown(cmdKey)
+                .sendKeys('c')
+                .keyUp(cmdKey)
+                .perform();
+            
             return {
-                content: [
-                    {
-                        type: 'text',
-                        text: 'Screenshot captured'
-                    },
-                    {
-                        type: 'image',
-                        data: screenshot,
-                        mimeType: 'image/png'
-                    }
-                ],
+                content: [{ type: 'text', text: 'Text copied to clipboard' }],
                 isError: false
             };
         } catch (e) {
-            return {
-                content: [
-                    {
-                        type: 'text',
-                        text: `Error taking screenshot: ${e.message}`
-                    }
-                ],
-                isError: true
-            };
+            return this._handleError('Error copying text', e);
         }
+    }
+
+    async pasteText(by, value, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            
+            // Paste text
+            const platform = process.platform;
+            const cmdKey = platform === 'darwin' ? Key.COMMAND : Key.CONTROL;
+            
+            await element.click();
+            const actions = driver.actions({ bridge: true });
+            await actions
+                .keyDown(cmdKey)
+                .sendKeys('v')
+                .keyUp(cmdKey)
+                .perform();
+            
+            return {
+                content: [{ type: 'text', text: 'Text pasted from clipboard' }],
+                isError: false
+            };
+        } catch (e) {
+            return this._handleError('Error pasting text', e);
+        }
+    }
+
+    async cutText(by, value, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            
+            // Cut text
+            const platform = process.platform;
+            const cmdKey = platform === 'darwin' ? Key.COMMAND : Key.CONTROL;
+            
+            await element.click();
+            const actions = driver.actions({ bridge: true });
+            await actions
+                .keyDown(cmdKey)
+                .sendKeys('a')
+                .keyUp(cmdKey)
+                .keyDown(cmdKey)
+                .sendKeys('x')
+                .keyUp(cmdKey)
+                .perform();
+            
+            return {
+                content: [{ type: 'text', text: 'Text cut to clipboard' }],
+                isError: false
+            };
+        } catch (e) {
+            return this._handleError('Error cutting text', e);
+        }
+    }
+
+    async sendKeyboardShortcut(by, value, keys, timeout = 10000) {
+        try {
+            const driver = this.drivers.get(this.currentSession);
+            if (!driver) {
+                return this._noSessionError();
+            }
+
+            const locator = this._getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            
+            await element.click();
+            const actions = driver.actions({ bridge: true });
+            
+            // Handle array of keys for combinations
+            if (Array.isArray(keys)) {
+                // Press all keys in sequence
+                for (const key of keys) {
+                    await actions.keyDown(key);
+                }
+                // Release all keys in reverse order
+                for (const key of keys.reverse()) {
+                    await actions.keyUp(key);
+                }
+            } else {
+                // Single key
+                await actions.keyDown(keys).keyUp(keys);
+            }
+            
+            await actions.perform();
+            
+            return {
+                content: [{ type: 'text', text: 'Keyboard shortcut sent' }],
+                isError: false
+            };
+        } catch (e) {
+            return this._handleError('Error sending keyboard shortcut', e);
+        }
+    }
+
+    _getLocator(by, value) {
+        switch (by.toLowerCase()) {
+            case 'id':
+                return By.id(value);
+            case 'css':
+                return By.css(value);
+            case 'xpath':
+                return By.xpath(value);
+            case 'name':
+                return By.name(value);
+            case 'tag':
+                return By.tagName(value);
+            case 'class':
+                return By.className(value);
+            default:
+                throw new Error(`Unsupported locator strategy: ${by}`);
+        }
+    }
+
+    _noSessionError() {
+        return {
+            content: [{ type: 'text', text: 'No active browser session' }],
+            isError: true
+        };
+    }
+
+    _handleError(message, error) {
+        console.error(`${message}:`, error);
+        return {
+            content: [{ type: 'text', text: `${message}: ${error.message}` }],
+            isError: true
+        };
     }
 
     async cleanup() {
-        for (const driver of this.drivers.values()) {
+        console.error('Cleaning up browser sessions...');
+        for (const [sessionId, driver] of this.drivers) {
             try {
                 await driver.quit();
+                console.error(`Closed browser session: ${sessionId}`);
             } catch (e) {
-                console.error('Error during cleanup:', e);
+                console.error(`Error closing browser session ${sessionId}:`, e);
             }
         }
         this.drivers.clear();
         this.currentSession = null;
-    }
-
-    async _getElement(by, value, timeout = 10000) {
-        if (!this.currentSession) {
-            throw new Error('No active browser session');
-        }
-
-        const driver = this.drivers.get(this.currentSession);
-        const byMap = {
-            'id': By.id,
-            'css': By.css,
-            'xpath': By.xpath,
-            'name': By.name,
-            'tag': By.tagName,
-            'class': By.className
-        };
-
-        const locator = byMap[by];
-        if (!locator) {
-            throw new Error(`Invalid locator strategy: ${by}`);
-        }
-
-        return await driver.wait(until.elementLocated(locator(value)), timeout);
     }
 }

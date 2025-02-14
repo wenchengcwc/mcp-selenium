@@ -1,363 +1,296 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 import { SeleniumServer } from './selenium-server.js';
 
-const TOOL_DEFINITIONS = {
-    start_browser: {
-        name: 'start_browser',
-        description: 'Start a new browser session',
-        parameters: {
-            browser: {
-                type: 'string',
-                enum: ['chrome', 'firefox']
-            },
-            options: {
-                type: 'object',
-                properties: {
-                    headless: { type: 'boolean' },
-                    arguments: {
-                        type: 'array',
-                        items: { type: 'string' }
-                    }
-                }
-            }
-        },
-        required: ['browser']
-    },
-    navigate: {
-        name: 'navigate',
-        description: 'Navigate to a URL',
-        parameters: {
-            url: {
-                type: 'string',
-                format: 'uri'
-            }
-        },
-        required: ['url']
-    },
-    find_element: {
-        name: 'find_element',
-        description: 'Find an element on the page',
-        parameters: {
-            by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class']
-            },
-            value: { type: 'string' },
-            timeout: { type: 'integer', default: 10 }
-        },
-        required: ['by', 'value']
-    },
-    click_element: {
-        name: 'click_element',
-        description: 'Click on an element',
-        parameters: {
-            by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class']
-            },
-            value: { type: 'string' },
-            timeout: { type: 'integer', default: 10 }
-        },
-        required: ['by', 'value']
-    },
-    type_text: {
-        name: 'type_text',
-        description: 'Type text into an input element',
-        parameters: {
-            by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class']
-            },
-            value: { type: 'string' },
-            text: { type: 'string' },
-            clear_first: { type: 'boolean', default: true },
-            timeout: { type: 'integer', default: 10 }
-        },
-        required: ['by', 'value', 'text']
-    },
-    hover: {
-        name: 'hover',
-        description: 'Mouse hover over an element',
-        parameters: {
-            by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class']
-            },
-            value: { type: 'string' },
-            timeout: { type: 'integer', default: 10 }
-        },
-        required: ['by', 'value']
-    },
-    drag_and_drop: {
-        name: 'drag_and_drop',
-        description: 'Drag and drop an element to a target location',
-        parameters: {
-            source_by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class']
-            },
-            source_value: { type: 'string' },
-            target_by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class']
-            },
-            target_value: { type: 'string' },
-            timeout: { type: 'integer', default: 10 }
-        },
-        required: ['source_by', 'source_value', 'target_by', 'target_value']
-    },
-    double_click: {
-        name: 'double_click',
-        description: 'Double click on an element',
-        parameters: {
-            by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class']
-            },
-            value: { type: 'string' },
-            timeout: { type: 'integer', default: 10 }
-        },
-        required: ['by', 'value']
-    },
-    right_click: {
-        name: 'right_click',
-        description: 'Right click on an element',
-        parameters: {
-            by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class']
-            },
-            value: { type: 'string' },
-            timeout: { type: 'integer', default: 10 }
-        },
-        required: ['by', 'value']
-    },
-    press_key: {
-        name: 'press_key',
-        description: 'Press a keyboard key',
-        parameters: {
-            key: {
-                type: 'string',
-                enum: ['ENTER', 'TAB', 'ESCAPE', 'BACKSPACE', 'DELETE', 'ARROW_DOWN', 'ARROW_UP', 'ARROW_LEFT', 'ARROW_RIGHT']
-            },
-            by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class'],
-                description: 'Optional: target element'
-            },
-            value: {
-                type: 'string',
-                description: 'Optional: target element'
-            },
-            timeout: { type: 'integer', default: 10 }
-        },
-        required: ['key']
-    },
-    upload_file: {
-        name: 'upload_file',
-        description: 'Upload a file using a file input element',
-        parameters: {
-            by: {
-                type: 'string',
-                enum: ['id', 'css', 'xpath', 'name', 'tag', 'class']
-            },
-            value: { type: 'string' },
-            file_path: { type: 'string' },
-            timeout: { type: 'integer', default: 10 }
-        },
-        required: ['by', 'value', 'file_path']
-    },
-    take_screenshot: {
-        name: 'take_screenshot',
-        description: 'Take a screenshot of the current page.',
-        parameters: {},
-        required: []
-    }
+// Create the Selenium instance
+const seleniumServer = new SeleniumServer();
+
+// Create an MCP server
+const server = new McpServer({
+    name: "MCP Selenium",
+    version: "0.2.0"
+});
+
+// Common schemas
+const browserOptionsSchema = z.object({
+    headless: z.boolean().optional(),
+    arguments: z.array(z.string()).optional()
+});
+
+const locatorSchema = {
+    by: z.enum(["id", "css", "xpath", "name", "tag", "class"]),
+    value: z.string(),
+    timeout: z.number().optional()
 };
 
-async function handleStdio() {
-    const server = new SeleniumServer();
-    const rl = process.stdin;
-    let buffer = '';
+// Browser Management Tools
+server.tool(
+    "start_browser",
+    {
+        browser: z.enum(["chrome", "firefox"]),
+        options: browserOptionsSchema.optional()
+    },
+    async ({ browser, options = {} }) => {
+        const result = await Promise.race([
+            seleniumServer.startBrowser(browser, options),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Browser startup is taking longer than expected. This is normal for first-time setup as drivers are being downloaded.')), 60000)
+            )
+        ]);
+        return {
+            content: result.content,
+            metadata: { session_id: result.session_id }
+        };
+    }
+);
 
-    rl.on('data', async (chunk) => {
-        buffer += chunk;
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
+server.tool(
+    "navigate",
+    {
+        url: z.string().url()
+    },
+    async ({ url }) => {
+        const result = await seleniumServer.navigate(url);
+        return { content: result.content };
+    }
+);
 
-        for (const line of lines) {
-            try {
-                const request = JSON.parse(line);
-                const method = request.method || request.type;
+// Basic Element Interaction Tools
+server.tool(
+    "find_element",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.findElement(by, value, timeout);
+        return { content: result.content };
+    }
+);
 
-                if (method === 'initialize') {
-                    const response = {
-                        jsonrpc: '2.0',
-                        id: request.id,
-                        result: {
-                            name: 'selenium',
-                            version: '0.2.0',
-                            tools: Object.values(TOOL_DEFINITIONS)
-                        }
-                    };
-                    console.log(JSON.stringify(response));
-                } else if (method === 'invoke') {
-                    let toolName, params;
-                    if ('tool' in request) {
-                        toolName = request.tool;
-                        params = request.parameters || {};
-                    } else {
-                        const paramsObj = request.params || {};
-                        toolName = paramsObj.tool;
-                        params = paramsObj.parameters || {};
-                    }
+server.tool(
+    "click_element",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.clickElement(by, value, timeout);
+        return { content: result.content };
+    }
+);
 
-                    let result;
-                    switch (toolName) {
-                        case 'start_browser':
-                            result = await server.startBrowser(params.browser, params.options);
-                            break;
-                        case 'navigate':
-                            result = await server.navigate(params.url);
-                            break;
-                        case 'find_element':
-                            result = await server.findElement(
-                                params.by,
-                                params.value,
-                                (params.timeout || 10) * 1000
-                            );
-                            break;
-                        case 'click_element':
-                            result = await server.clickElement(
-                                params.by,
-                                params.value,
-                                (params.timeout || 10) * 1000
-                            );
-                            break;
-                        case 'type_text':
-                            result = await server.typeText(
-                                params.by,
-                                params.value,
-                                params.text,
-                                params.clear_first,
-                                (params.timeout || 10) * 1000
-                            );
-                            break;
-                        case 'hover':
-                            result = await server.hover(
-                                params.by,
-                                params.value,
-                                (params.timeout || 10) * 1000
-                            );
-                            break;
-                        case 'drag_and_drop':
-                            result = await server.dragAndDrop(
-                                params.source_by,
-                                params.source_value,
-                                params.target_by,
-                                params.target_value,
-                                (params.timeout || 10) * 1000
-                            );
-                            break;
-                        case 'double_click':
-                            result = await server.doubleClick(
-                                params.by,
-                                params.value,
-                                (params.timeout || 10) * 1000
-                            );
-                            break;
-                        case 'right_click':
-                            result = await server.rightClick(
-                                params.by,
-                                params.value,
-                                (params.timeout || 10) * 1000
-                            );
-                            break;
-                        case 'press_key':
-                            result = await server.pressKey(
-                                params.key,
-                                params.by,
-                                params.value,
-                                (params.timeout || 10) * 1000
-                            );
-                            break;
-                        case 'upload_file':
-                            result = await server.uploadFile(
-                                params.by,
-                                params.value,
-                                params.file_path,
-                                (params.timeout || 10) * 1000
-                            );
-                            break;
-                        case 'take_screenshot':
-                            result = await server.takeScreenshot();
-                            break;
-                        default:
-                            console.log(JSON.stringify({
-                                jsonrpc: '2.0',
-                                id: request.id,
-                                error: {
-                                    code: -32601,
-                                    message: `Unknown tool: ${toolName}`
-                                }
-                            }));
-                            continue;
-                    }
+server.tool(
+    "send_keys",
+    {
+        ...locatorSchema,
+        text: z.string()
+    },
+    async ({ by, value, text, timeout }) => {
+        const result = await seleniumServer.sendKeys(by, value, text, timeout);
+        return { content: result.content };
+    }
+);
 
-                    if (result.isError) {
-                        console.log(JSON.stringify({
-                            jsonrpc: '2.0',
-                            id: request.id,
-                            error: {
-                                code: -32000,
-                                message: result.content[0].text || 'Unknown error'
-                            }
-                        }));
-                    } else {
-                        console.log(JSON.stringify({
-                            jsonrpc: '2.0',
-                            id: request.id,
-                            result
-                        }));
-                    }
-                } else {
-                    console.log(JSON.stringify({
-                        jsonrpc: '2.0',
-                        id: request.id,
-                        error: {
-                            code: -32601,
-                            message: `Unknown method: ${method}`
-                        }
-                    }));
-                }
-            } catch (e) {
-                console.error(e);
-                console.log(JSON.stringify({
-                    jsonrpc: '2.0',
-                    id: request.id,
-                    error: {
-                        code: -32000,
-                        message: e.message
-                    }
-                }));
-            }
-        }
-    });
+server.tool(
+    "send_special_key",
+    {
+        ...locatorSchema,
+        keyName: z.enum([
+            'enter', 'return', 'tab', 'escape', 'space',
+            'backspace', 'delete',
+            'up', 'down', 'left', 'right',
+            'pageup', 'pagedown', 'home', 'end'
+        ])
+    },
+    async ({ by, value, keyName, timeout }) => {
+        const result = await seleniumServer.sendSpecialKey(by, value, keyName, timeout);
+        return { content: result.content };
+    }
+);
 
-    rl.on('end', async () => {
-        await server.cleanup();
-        process.exit(0);
-    });
+server.tool(
+    "clear_element",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.clearElement(by, value, timeout);
+        return { content: result.content };
+    }
+);
 
-    // Handle process termination
-    process.on('SIGTERM', async () => {
-        await server.cleanup();
-        process.exit(0);
-    });
+server.tool(
+    "get_element_text",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.getElementText(by, value, timeout);
+        return { content: result.content };
+    }
+);
 
-    process.on('SIGINT', async () => {
-        await server.cleanup();
-        process.exit(0);
-    });
+server.tool(
+    "get_element_attribute",
+    {
+        ...locatorSchema,
+        attribute: z.string()
+    },
+    async ({ by, value, attribute, timeout }) => {
+        const result = await seleniumServer.getElementAttribute(by, value, attribute, timeout);
+        return { content: result.content };
+    }
+);
+
+// Advanced Mouse Interaction Tools
+server.tool(
+    "double_click",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.doubleClick(by, value, timeout);
+        return { content: result.content };
+    }
+);
+
+server.tool(
+    "right_click",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.rightClick(by, value, timeout);
+        return { content: result.content };
+    }
+);
+
+server.tool(
+    "hover",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.hover(by, value, timeout);
+        return { content: result.content };
+    }
+);
+
+server.tool(
+    "drag_and_drop",
+    {
+        sourceBy: z.enum(["id", "css", "xpath", "name", "tag", "class"]),
+        sourceValue: z.string(),
+        targetBy: z.enum(["id", "css", "xpath", "name", "tag", "class"]),
+        targetValue: z.string(),
+        timeout: z.number().optional()
+    },
+    async ({ sourceBy, sourceValue, targetBy, targetValue, timeout }) => {
+        const result = await seleniumServer.dragAndDrop(sourceBy, sourceValue, targetBy, targetValue, timeout);
+        return { content: result.content };
+    }
+);
+
+// File Upload Tool
+server.tool(
+    "upload_file",
+    {
+        ...locatorSchema,
+        filePath: z.string()
+    },
+    async ({ by, value, filePath, timeout }) => {
+        const result = await seleniumServer.uploadFile(by, value, filePath, timeout);
+        return { content: result.content };
+    }
+);
+
+// Frame Management Tools
+server.tool(
+    "switch_to_frame",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.switchToFrame(by, value, timeout);
+        return { content: result.content };
+    }
+);
+
+server.tool(
+    "switch_to_default_content",
+    {},
+    async () => {
+        const result = await seleniumServer.switchToDefaultContent();
+        return { content: result.content };
+    }
+);
+
+// Alert Handling Tools
+server.tool(
+    "accept_alert",
+    {},
+    async () => {
+        const result = await seleniumServer.acceptAlert();
+        return { content: result.content };
+    }
+);
+
+server.tool(
+    "dismiss_alert",
+    {},
+    async () => {
+        const result = await seleniumServer.dismissAlert();
+        return { content: result.content };
+    }
+);
+
+server.tool(
+    "get_alert_text",
+    {},
+    async () => {
+        const result = await seleniumServer.getAlertText();
+        return { content: result.content };
+    }
+);
+
+// Clipboard Operation Tools
+server.tool(
+    "copy_text",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.copyText(by, value, timeout);
+        return { content: result.content };
+    }
+);
+
+server.tool(
+    "paste_text",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.pasteText(by, value, timeout);
+        return { content: result.content };
+    }
+);
+
+server.tool(
+    "cut_text",
+    locatorSchema,
+    async ({ by, value, timeout }) => {
+        const result = await seleniumServer.cutText(by, value, timeout);
+        return { content: result.content };
+    }
+);
+
+// Browser Status Resource
+server.resource(
+    "browser-status",
+    "browser-status://current",
+    async (uri) => ({
+        contents: [{
+            uri: uri.href,
+            text: seleniumServer.currentSession 
+                ? `Active browser session: ${seleniumServer.currentSession}`
+                : "No active browser session"
+        }]
+    })
+);
+
+// Handle cleanup
+async function cleanup() {
+    await seleniumServer.cleanup();
+    process.exit(0);
 }
 
-handleStdio().catch(console.error);
+process.on('SIGTERM', cleanup);
+process.on('SIGINT', cleanup);
+
+// Start in stdio mode by default
+console.error('Starting MCP Selenium Server...');
+console.error('Ready to receive commands...');
+
+const transport = new StdioServerTransport();
+await server.connect(transport);
