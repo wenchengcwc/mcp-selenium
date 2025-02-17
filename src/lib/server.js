@@ -54,6 +54,7 @@ const locatorSchema = {
 // Browser Management Tools
 server.tool(
     "start_browser",
+    "launches browser",
     {
         browser: z.enum(["chrome", "firefox"]).describe("Browser to launch (chrome or firefox)"),
         options: browserOptionsSchema
@@ -108,6 +109,7 @@ server.tool(
 
 server.tool(
     "navigate",
+    "navigates to a URL",
     {
         url: z.string().describe("URL to navigate to")
         
@@ -130,8 +132,9 @@ server.tool(
 // Element Interaction Tools
 server.tool(
     "find_element",
+    "finds an element",
     {
-        parameters: locatorSchema
+        ...locatorSchema
     },
     async ({ by, value, timeout = 10000 }) => {
         try {
@@ -151,8 +154,9 @@ server.tool(
 
 server.tool(
     "click_element",
+    "clicks an element",
     {
-        parameters: locatorSchema
+        ...locatorSchema
     },
     async ({ by, value, timeout = 10000 }) => {
         try {
@@ -173,6 +177,7 @@ server.tool(
 
 server.tool(
     "send_keys",
+    "sends keys to an element, aka typing",
     {
         ...locatorSchema,
         text: z.string().describe("Text to enter into the element")
@@ -197,8 +202,9 @@ server.tool(
 
 server.tool(
     "get_element_text",
+    "gets the text() of an element",
     {
-        parameters: locatorSchema
+        ...locatorSchema
     },
     async ({ by, value, timeout = 10000 }) => {
         try {
