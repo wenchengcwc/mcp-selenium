@@ -1,12 +1,20 @@
 {
   "name": "@angiejones/mcp-selenium",
-  "version": "0.1.0",
+  "version": "0.1.13",
   "description": "Model Context Protocol (MCP) server implementation for Selenium WebDriver",
+  "main": "src/lib/server.js",
   "bin": {
-    "mcp-selenium": "src/mcp_server_selenium/server.py"
+    "mcp-selenium": "bin/mcp-selenium.js"
   },
+  "type": "module",
   "scripts": {
-    "postinstall": "python3 -m pip install --user selenium webdriver-manager"
+    "start": "node src/lib/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.5.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "selenium-webdriver": "^4.28.1"
   },
   "keywords": [
     "selenium",
@@ -23,5 +31,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "^0.4.1"
   }
 }
