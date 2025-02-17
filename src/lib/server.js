@@ -1,77 +1,173 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { SeleniumServer } from './selenium-server.js';
-
-// Create the Selenium instance
-const seleniumServer = new SeleniumServer();
+import pkg from 'selenium-webdriver';
+const { Builder, By, Key, until } = pkg;
+import { Options as ChromeOptions } from 'selenium-webdriver/chrome.js';
+import { Options as FirefoxOptions } from 'selenium-webdriver/firefox.js';
 
 // Create an MCP server
 const server = new McpServer({
     name: "MCP Selenium",
-    version: "0.2.0"
+    version: "1.0.0"
 });
+
+// Server state
+const state = {
+    drivers: new Map(),
+    currentSession: null
+};
+
+// Helper functions
+const getDriver = () => {
+    const driver = state.drivers.get(state.currentSession);
+    if (!driver) {
+        throw new Error('No active browser session');
+    }
+    return driver;
+};
+
+const getLocator = (by, value) => {
+    switch (by.toLowerCase()) {
+        case 'id': return By.id(value);
+        case 'css': return By.css(value);
+        case 'xpath': return By.xpath(value);
+        case 'name': return By.name(value);
+        case 'tag': return By.tagName(value);
+        case 'class': return By.className(value);
+        default: throw new Error(`Unsupported locator strategy: ${by}`);
+    }
+};
 
 // Common schemas
 const browserOptionsSchema = z.object({
-    headless: z.boolean().optional(),
-    arguments: z.array(z.string()).optional()
-});
+    headless: z.boolean().optional().describe("Run browser in headless mode"),
+    arguments: z.array(z.string()).optional().describe("Additional browser arguments")
+}).optional();
 
 const locatorSchema = {
-    by: z.enum(["id", "css", "xpath", "name", "tag", "class"]),
-    value: z.string(),
-    timeout: z.number().optional()
+    by: z.enum(["id", "css", "xpath", "name", "tag", "class"]).describe("Locator strategy to find element"),
+    value: z.string().describe("Value for the locator strategy"),
+    timeout: z.number().optional().describe("Maximum time to wait for element in milliseconds")
 };
 
 // Browser Management Tools
 server.tool(
     "start_browser",
     {
-        browser: z.enum(["chrome", "firefox"]),
-        options: browserOptionsSchema.optional()
+        browser: z.enum(["chrome", "firefox"]).describe("Browser to launch (chrome or firefox)"),
+        options: browserOptionsSchema
     },
     async ({ browser, options = {} }) => {
-        const result = await Promise.race([
-            seleniumServer.startBrowser(browser, options),
-            new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Browser startup is taking longer than expected. This is normal for first-time setup as drivers are being downloaded.')), 60000)
-            )
-        ]);
-        return {
-            content: result.content,
-            metadata: { session_id: result.session_id }
-        };
+        try {
+            let builder = new Builder();
+            let driver;
+
+            if (browser === 'chrome') {
+                const chromeOptions = new ChromeOptions();
+                if (options.headless) {
+                    chromeOptions.addArguments('--headless=new');
+                }
+                if (options.arguments) {
+                    options.arguments.forEach(arg => chromeOptions.addArguments(arg));
+                }
+                
+                driver = await builder
+                    .forBrowser('chrome')
+                    .setChromeOptions(chromeOptions)
+                    .build();
+            } else {
+                const firefoxOptions = new FirefoxOptions();
+                if (options.headless) {
+                    firefoxOptions.addArguments('--headless');
+                }
+                if (options.arguments) {
+                    options.arguments.forEach(arg => firefoxOptions.addArguments(arg));
+                }
+                
+                driver = await builder
+                    .forBrowser('firefox')
+                    .setFirefoxOptions(firefoxOptions)
+                    .build();
+            }
+
+            const sessionId = `${browser}_${Date.now()}`;
+            state.drivers.set(sessionId, driver);
+            state.currentSession = sessionId;
+
+            return {
+                content: [{ type: 'text', text: `Browser started with session_id: ${sessionId}` }]
+            };
+        } catch (e) {
+            return {
+                content: [{ type: 'text', text: `Error starting browser: ${e.message}` }]
+            };
+        }
     }
 );
 
 server.tool(
     "navigate",
     {
-        url: z.string().url()
+        url: z.string().describe("URL to navigate to")
+        
     },
     async ({ url }) => {
-        const result = await seleniumServer.navigate(url);
-        return { content: result.content };
+        try {
+            const driver = getDriver();
+            await driver.get(url);
+            return {
+                content: [{ type: 'text', text: `Navigated to ${url}` }]
+            };
+        } catch (e) {
+            return {
+                content: [{ type: 'text', text: `Error navigating: ${e.message}` }]
+            };
+        }
     }
 );
 
-// Basic Element Interaction Tools
+// Element Interaction Tools
 server.tool(
     "find_element",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.findElement(by, value, timeout);
-        return { content: result.content };
+    {
+        parameters: locatorSchema
+    },
+    async ({ by, value, timeout = 10000 }) => {
+        try {
+            const driver = getDriver();
+            const locator = getLocator(by, value);
+            await driver.wait(until.elementLocated(locator), timeout);
+            return {
+                content: [{ type: 'text', text: 'Element found' }]
+            };
+        } catch (e) {
+            return {
+                content: [{ type: 'text', text: `Error finding element: ${e.message}` }]
+            };
+        }
     }
 );
 
 server.tool(
     "click_element",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.clickElement(by, value, timeout);
-        return { content: result.content };
+    {
+        parameters: locatorSchema
+    },
+    async ({ by, value, timeout = 10000 }) => {
+        try {
+            const driver = getDriver();
+            const locator = getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            await element.click();
+            return {
+                content: [{ type: 'text', text: 'Element clicked' }]
+            };
+        } catch (e) {
+            return {
+                content: [{ type: 'text', text: `Error clicking element: ${e.message}` }]
+            };
+        }
     }
 );
 
@@ -79,218 +175,79 @@ server.tool(
     "send_keys",
     {
         ...locatorSchema,
-        text: z.string()
+        text: z.string().describe("Text to enter into the element")
     },
-    async ({ by, value, text, timeout }) => {
-        const result = await seleniumServer.sendKeys(by, value, text, timeout);
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "send_special_key",
-    {
-        ...locatorSchema,
-        keyName: z.enum([
-            'enter', 'return', 'tab', 'escape', 'space',
-            'backspace', 'delete',
-            'up', 'down', 'left', 'right',
-            'pageup', 'pagedown', 'home', 'end'
-        ])
-    },
-    async ({ by, value, keyName, timeout }) => {
-        const result = await seleniumServer.sendSpecialKey(by, value, keyName, timeout);
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "clear_element",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.clearElement(by, value, timeout);
-        return { content: result.content };
+    async ({ by, value, text, timeout = 10000 }) => {
+        try {
+            const driver = getDriver();
+            const locator = getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            await element.clear();
+            await element.sendKeys(text);
+            return {
+                content: [{ type: 'text', text: `Text "${text}" entered into element` }]
+            };
+        } catch (e) {
+            return {
+                content: [{ type: 'text', text: `Error entering text: ${e.message}` }]
+            };
+        }
     }
 );
 
 server.tool(
     "get_element_text",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.getElementText(by, value, timeout);
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "get_element_attribute",
     {
-        ...locatorSchema,
-        attribute: z.string()
+        parameters: locatorSchema
     },
-    async ({ by, value, attribute, timeout }) => {
-        const result = await seleniumServer.getElementAttribute(by, value, attribute, timeout);
-        return { content: result.content };
+    async ({ by, value, timeout = 10000 }) => {
+        try {
+            const driver = getDriver();
+            const locator = getLocator(by, value);
+            const element = await driver.wait(until.elementLocated(locator), timeout);
+            const text = await element.getText();
+            return {
+                content: [{ type: 'text', text }]
+            };
+        } catch (e) {
+            return {
+                content: [{ type: 'text', text: `Error getting element text: ${e.message}` }]
+            };
+        }
     }
 );
 
-// Advanced Mouse Interaction Tools
-server.tool(
-    "double_click",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.doubleClick(by, value, timeout);
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "right_click",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.rightClick(by, value, timeout);
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "hover",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.hover(by, value, timeout);
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "drag_and_drop",
-    {
-        sourceBy: z.enum(["id", "css", "xpath", "name", "tag", "class"]),
-        sourceValue: z.string(),
-        targetBy: z.enum(["id", "css", "xpath", "name", "tag", "class"]),
-        targetValue: z.string(),
-        timeout: z.number().optional()
-    },
-    async ({ sourceBy, sourceValue, targetBy, targetValue, timeout }) => {
-        const result = await seleniumServer.dragAndDrop(sourceBy, sourceValue, targetBy, targetValue, timeout);
-        return { content: result.content };
-    }
-);
-
-// File Upload Tool
-server.tool(
-    "upload_file",
-    {
-        ...locatorSchema,
-        filePath: z.string()
-    },
-    async ({ by, value, filePath, timeout }) => {
-        const result = await seleniumServer.uploadFile(by, value, filePath, timeout);
-        return { content: result.content };
-    }
-);
-
-// Frame Management Tools
-server.tool(
-    "switch_to_frame",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.switchToFrame(by, value, timeout);
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "switch_to_default_content",
-    {},
-    async () => {
-        const result = await seleniumServer.switchToDefaultContent();
-        return { content: result.content };
-    }
-);
-
-// Alert Handling Tools
-server.tool(
-    "accept_alert",
-    {},
-    async () => {
-        const result = await seleniumServer.acceptAlert();
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "dismiss_alert",
-    {},
-    async () => {
-        const result = await seleniumServer.dismissAlert();
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "get_alert_text",
-    {},
-    async () => {
-        const result = await seleniumServer.getAlertText();
-        return { content: result.content };
-    }
-);
-
-// Clipboard Operation Tools
-server.tool(
-    "copy_text",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.copyText(by, value, timeout);
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "paste_text",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.pasteText(by, value, timeout);
-        return { content: result.content };
-    }
-);
-
-server.tool(
-    "cut_text",
-    locatorSchema,
-    async ({ by, value, timeout }) => {
-        const result = await seleniumServer.cutText(by, value, timeout);
-        return { content: result.content };
-    }
-);
-
-// Browser Status Resource
+// Resources
 server.resource(
     "browser-status",
-    "browser-status://current",
+    new ResourceTemplate("browser-status://current"),
     async (uri) => ({
         contents: [{
             uri: uri.href,
-            text: seleniumServer.currentSession 
-                ? `Active browser session: ${seleniumServer.currentSession}`
+            text: state.currentSession 
+                ? `Active browser session: ${state.currentSession}`
                 : "No active browser session"
         }]
     })
 );
 
-// Handle cleanup
+// Cleanup handler
 async function cleanup() {
-    await seleniumServer.cleanup();
+    for (const [sessionId, driver] of state.drivers) {
+        try {
+            await driver.quit();
+        } catch (e) {
+            console.error(`Error closing browser session ${sessionId}:`, e);
+        }
+    }
+    state.drivers.clear();
+    state.currentSession = null;
     process.exit(0);
 }
 
 process.on('SIGTERM', cleanup);
 process.on('SIGINT', cleanup);
 
-// Start in stdio mode by default
-console.error('Starting MCP Selenium Server...');
-console.error('Ready to receive commands...');
-
+// Start the server
 const transport = new StdioServerTransport();
 await server.connect(transport);
