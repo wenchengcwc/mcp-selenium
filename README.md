@@ -35,16 +35,16 @@ Or use with NPX in your MCP configuration:
 ## Tools
 
 ### start_browser
-Start a new browser session.
+Launches a browser session.
 
 **Parameters:**
-- `browser` (required): Browser to use
+- `browser` (required): Browser to launch
   - Type: string
   - Enum: ["chrome", "firefox"]
 - `options`: Browser configuration options
   - Type: object
   - Properties:
-    - `headless`: Run in headless mode
+    - `headless`: Run browser in headless mode
       - Type: boolean
     - `arguments`: Additional browser arguments
       - Type: array of strings
@@ -64,12 +64,11 @@ Start a new browser session.
 ```
 
 ### navigate
-Navigate to a URL.
+Navigates to a URL.
 
 **Parameters:**
-- `url` (required): The URL to navigate to
+- `url` (required): URL to navigate to
   - Type: string
-  - Format: uri
 
 **Example:**
 ```json
@@ -82,17 +81,17 @@ Navigate to a URL.
 ```
 
 ### find_element
-Find an element on the page.
+Finds an element on the page.
 
 **Parameters:**
 - `by` (required): Locator strategy
   - Type: string
   - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `value` (required): Locator value
+- `value` (required): Value for the locator strategy
   - Type: string
-- `timeout`: Maximum time to wait for element
-  - Type: integer
-  - Default: 10 (seconds)
+- `timeout`: Maximum time to wait for element in milliseconds
+  - Type: number
+  - Default: 10000
 
 **Example:**
 ```json
@@ -101,23 +100,23 @@ Find an element on the page.
   "parameters": {
     "by": "id",
     "value": "search-input",
-    "timeout": 5
+    "timeout": 5000
   }
 }
 ```
 
 ### click_element
-Click on an element.
+Clicks an element.
 
 **Parameters:**
 - `by` (required): Locator strategy
   - Type: string
   - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `value` (required): Locator value
+- `value` (required): Value for the locator strategy
   - Type: string
-- `timeout`: Maximum time to wait for element
-  - Type: integer
-  - Default: 10 (seconds)
+- `timeout`: Maximum time to wait for element in milliseconds
+  - Type: number
+  - Default: 10000
 
 **Example:**
 ```json
@@ -130,49 +129,69 @@ Click on an element.
 }
 ```
 
-### type_text
-Type text into an input element.
+### send_keys
+Sends keys to an element (typing).
 
 **Parameters:**
 - `by` (required): Locator strategy
   - Type: string
   - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `value` (required): Locator value
+- `value` (required): Value for the locator strategy
   - Type: string
-- `text` (required): Text to type
+- `text` (required): Text to enter into the element
   - Type: string
-- `clear_first`: Clear existing text before typing
-  - Type: boolean
-  - Default: true
-- `timeout`: Maximum time to wait for element
-  - Type: integer
-  - Default: 10 (seconds)
+- `timeout`: Maximum time to wait for element in milliseconds
+  - Type: number
+  - Default: 10000
 
 **Example:**
 ```json
 {
-  "tool": "type_text",
+  "tool": "send_keys",
   "parameters": {
     "by": "name",
     "value": "username",
-    "text": "testuser",
-    "clear_first": true
+    "text": "testuser"
+  }
+}
+```
+
+### get_element_text
+Gets the text() of an element.
+
+**Parameters:**
+- `by` (required): Locator strategy
+  - Type: string
+  - Enum: ["id", "css", "xpath", "name", "tag", "class"]
+- `value` (required): Value for the locator strategy
+  - Type: string
+- `timeout`: Maximum time to wait for element in milliseconds
+  - Type: number
+  - Default: 10000
+
+**Example:**
+```json
+{
+  "tool": "get_element_text",
+  "parameters": {
+    "by": "css",
+    "value": ".message"
   }
 }
 ```
 
 ### hover
-Mouse hover over an element.
+Moves the mouse to hover over an element.
 
 **Parameters:**
 - `by` (required): Locator strategy
   - Type: string
   - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `value` (required): Locator value
+- `value` (required): Value for the locator strategy
   - Type: string
-- `timeout`: Maximum time to wait for element
-  - Type: integer
-  - Default: 10 (seconds)
+- `timeout`: Maximum time to wait for element in milliseconds
+  - Type: number
+  - Default: 10000
 
 **Example:**
 ```json
@@ -186,48 +205,48 @@ Mouse hover over an element.
 ```
 
 ### drag_and_drop
-Drag and drop an element to a target location.
+Drags an element and drops it onto another element.
 
 **Parameters:**
-- `source_by` (required): Source element locator strategy
+- `by` (required): Locator strategy for source element
   - Type: string
   - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `source_value` (required): Source element locator value
+- `value` (required): Value for the source locator strategy
   - Type: string
-- `target_by` (required): Target element locator strategy
+- `targetBy` (required): Locator strategy for target element
   - Type: string
   - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `target_value` (required): Target element locator value
+- `targetValue` (required): Value for the target locator strategy
   - Type: string
-- `timeout`: Maximum time to wait for elements
-  - Type: integer
-  - Default: 10 (seconds)
+- `timeout`: Maximum time to wait for elements in milliseconds
+  - Type: number
+  - Default: 10000
 
 **Example:**
 ```json
 {
   "tool": "drag_and_drop",
   "parameters": {
-    "source_by": "id",
-    "source_value": "draggable",
-    "target_by": "id",
-    "target_value": "droppable"
+    "by": "id",
+    "value": "draggable",
+    "targetBy": "id",
+    "targetValue": "droppable"
   }
 }
 ```
 
 ### double_click
-Double click on an element.
+Performs a double click on an element.
 
 **Parameters:**
 - `by` (required): Locator strategy
   - Type: string
   - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `value` (required): Locator value
+- `value` (required): Value for the locator strategy
   - Type: string
-- `timeout`: Maximum time to wait for element
-  - Type: integer
-  - Default: 10 (seconds)
+- `timeout`: Maximum time to wait for element in milliseconds
+  - Type: number
+  - Default: 10000
 
 **Example:**
 ```json
@@ -241,17 +260,17 @@ Double click on an element.
 ```
 
 ### right_click
-Right click on an element.
+Performs a right click (context click) on an element.
 
 **Parameters:**
 - `by` (required): Locator strategy
   - Type: string
   - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `value` (required): Locator value
+- `value` (required): Value for the locator strategy
   - Type: string
-- `timeout`: Maximum time to wait for element
-  - Type: integer
-  - Default: 10 (seconds)
+- `timeout`: Maximum time to wait for element in milliseconds
+  - Type: number
+  - Default: 10000
 
 **Example:**
 ```json
@@ -265,47 +284,36 @@ Right click on an element.
 ```
 
 ### press_key
-Press a keyboard key.
+Simulates pressing a keyboard key.
 
 **Parameters:**
-- `key` (required): Key to press
+- `key` (required): Key to press (e.g., 'Enter', 'Tab', 'a', etc.)
   - Type: string
-  - Enum: ["ENTER", "TAB", "ESCAPE", "BACKSPACE", "DELETE", "ARROW_DOWN", "ARROW_UP", "ARROW_LEFT", "ARROW_RIGHT"]
-- `by`: Optional target element locator strategy
-  - Type: string
-  - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `value`: Optional target element locator value
-  - Type: string
-- `timeout`: Maximum time to wait for element
-  - Type: integer
-  - Default: 10 (seconds)
 
 **Example:**
 ```json
 {
   "tool": "press_key",
   "parameters": {
-    "key": "ENTER",
-    "by": "id",
-    "value": "search-input"
+    "key": "Enter"
   }
 }
 ```
 
 ### upload_file
-Upload a file using a file input element.
+Uploads a file using a file input element.
 
 **Parameters:**
 - `by` (required): Locator strategy
   - Type: string
   - Enum: ["id", "css", "xpath", "name", "tag", "class"]
-- `value` (required): Locator value
+- `value` (required): Value for the locator strategy
   - Type: string
-- `file_path` (required): Path to the file to upload
+- `filePath` (required): Absolute path to the file to upload
   - Type: string
-- `timeout`: Maximum time to wait for element
-  - Type: integer
-  - Default: 10 (seconds)
+- `timeout`: Maximum time to wait for element in milliseconds
+  - Type: number
+  - Default: 10000
 
 **Example:**
 ```json
@@ -314,21 +322,25 @@ Upload a file using a file input element.
   "parameters": {
     "by": "id",
     "value": "file-input",
-    "file_path": "/path/to/file.pdf"
+    "filePath": "/path/to/file.pdf"
   }
 }
 ```
 
 ### take_screenshot
-Take a screenshot of the current page.
+Captures a screenshot of the current page.
 
-**Parameters:** None
+**Parameters:**
+- `outputPath` (optional): Path where to save the screenshot. If not provided, returns base64 data.
+  - Type: string
 
 **Example:**
 ```json
 {
   "tool": "take_screenshot",
-  "parameters": {}
+  "parameters": {
+    "outputPath": "/path/to/screenshot.png"
+  }
 }
 ```
 
