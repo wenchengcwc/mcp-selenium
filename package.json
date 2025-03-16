@@ -10,7 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@modelcontextprotocol/core": "^0.1.4",
     "selenium-webdriver": "^4.18.1"
   }
 }
