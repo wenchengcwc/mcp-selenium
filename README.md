@@ -1,6 +1,8 @@
 # MCP Selenium Server
 
-A Model Context Protocol (MCP) server implementation for Selenium WebDriver, allowing AI agents to control web browsers.
+[![smithery badge](https://smithery.ai/badge/@angiejones/mcp-selenium)](https://smithery.ai/server/@angiejones/mcp-selenium)
+
+A Model Context Protocol (MCP) server implementation for Selenium WebDriver, enabling browser automation through standardized MCP clients.
 
 ## Features
 
@@ -59,9 +61,19 @@ To work on this project:
 
 ### Installation
 
+#### Installing via Smithery
+
+To install MCP Selenium for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@angiejones/mcp-selenium):
+
+```bash
+npx -y @smithery/cli install @angiejones/mcp-selenium --client claude
+```
+
+#### Manual Installation
 ```bash
 npm install -g @angiejones/mcp-selenium
 ```
+
 
 ### Usage
 
@@ -86,6 +98,8 @@ Or use with NPX in your MCP configuration:
   }
 }
 ```
+
+
 
 ## Tools
 
