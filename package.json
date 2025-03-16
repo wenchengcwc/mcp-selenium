@@ -1,6 +1,6 @@
 {
   "name": "@angiejones/mcp-selenium",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Selenium WebDriver MCP Server",
   "main": "src/lib/server.js",
   "scripts": {
