@@ -9,7 +9,10 @@ RUN apk update && apk add --no-cache \
     freetype-dev \
     harfbuzz \
     ca-certificates \
-    ttf-freefont
+    ttf-freefont \
+    udev \
+    ttf-opensans \
+    chromium-chromedriver
 
 # Set Chrome environment variables
 ENV CHROME_BIN=/usr/bin/chromium-browser
@@ -26,9 +29,6 @@ RUN npm install
 
 # Copy application code
 COPY . .
-
-# Build the application (if you have a build step)
-RUN npm run build
 
 # Start the MCP server
 CMD ["node", "src/lib/server.js"]
