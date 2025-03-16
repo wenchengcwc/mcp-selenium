@@ -2,13 +2,68 @@
 
 A Model Context Protocol (MCP) server implementation for Selenium WebDriver, allowing AI agents to control web browsers.
 
-## Installation
+## Features
+
+- Start browser sessions with customizable options
+- Navigate to URLs
+- Find elements using various locator strategies
+- Click, type, and interact with elements
+- Perform mouse actions (hover, drag and drop)
+- Handle keyboard input
+- Take screenshots
+- Upload files
+- Support for headless mode
+
+## Supported Browsers
+
+- Chrome
+- Firefox
+
+## Use with Goose
+
+### Option 1: One-click install
+Copy and paste the link below into a browser address bar to add this extension to goose desktop:
+
+```
+goose://extension?cmd=npx&arg=-y&arg=%40angiejones%2Fmcp-selenium&id=selenium-mcp&name=Selenium%20MCP&description=automates%20browser%20interactions
+```
+
+
+### Option 2: Add manually to desktop or CLI
+
+* Name: `Selenium MCP`
+* Description: `automates browser interactions`
+* Command: `npx -y @angiejones/mcp-selenium`
+
+## Use with other MCP clients (e.g. Claude Desktop, etc)
+```json
+{
+  "mcpServers": {
+    "selenium": {
+      "command": "npx",
+      "args": ["-y", "@angiejones/mcp-selenium"]
+    }
+  }
+}
+```
+
+---
+
+## Development
+
+To work on this project:
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Run the server: `npm start`
+
+### Installation
 
 ```bash
 npm install -g @angiejones/mcp-selenium
 ```
 
-## Usage
+### Usage
 
 Start the server by running:
 
@@ -344,30 +399,6 @@ Captures a screenshot of the current page.
 }
 ```
 
-## Supported Browsers
-
-- Chrome
-- Firefox
-
-## Features
-
-- Start browser sessions with customizable options
-- Navigate to URLs
-- Find elements using various locator strategies
-- Click, type, and interact with elements
-- Perform mouse actions (hover, drag and drop)
-- Handle keyboard input
-- Take screenshots
-- Upload files
-- Support for headless mode
-
-## Development
-
-To work on this project:
-
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Run the server: `npm start`
 
 ## License
 
