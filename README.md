@@ -61,9 +61,19 @@ To work on this project:
 
 ### Installation
 
+#### Installing via Smithery
+
+To install MCP Selenium for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@angiejones/mcp-selenium):
+
+```bash
+npx -y @smithery/cli install @angiejones/mcp-selenium --client claude
+```
+
+#### Manual Installation
 ```bash
 npm install -g @angiejones/mcp-selenium
 ```
+
 
 ### Usage
 
@@ -89,18 +99,10 @@ Or use with NPX in your MCP configuration:
 }
 ```
 
-### Installing via Smithery
 
-To install MCP Selenium for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@angiejones/mcp-selenium):
 
-```bash
-npx -y @smithery/cli install @angiejones/mcp-selenium --client claude
-```
+## Tools
 
-### Manual Installation
-```bash
-npm install -g @angiejones/mcp-selenium
-=======
 ### start_browser
 Launches a browser session.
 
@@ -129,8 +131,6 @@ Launches a browser session.
   }
 }
 ```
-
-## Tools
 
 ### navigate
 Navigates to a URL.

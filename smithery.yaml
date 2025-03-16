@@ -10,4 +10,4 @@ startCommand:
   commandFunction:
     # A function that produces the CLI command to start the MCP on stdio.
     |-
-    (config) => ({command:'python3', args:['src/mcp_server_selenium/server.py'], env:{}})
+    (config) => ({command:'node', args:['src/lib/server.js'], env:{}})
