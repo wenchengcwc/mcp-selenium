@@ -36,7 +36,7 @@ const getLocator = (by, value) => {
         case 'css': return By.css(value);
         case 'xpath': return By.xpath(value);
         case 'name': return By.name(value);
-        case 'tag': return By.tagName(value);
+        case 'tag': return By.css(value);
         case 'class': return By.className(value);
         default: throw new Error(`Unsupported locator strategy: ${by}`);
     }
@@ -403,6 +403,28 @@ server.tool(
         } catch (e) {
             return {
                 content: [{ type: 'text', text: `Error taking screenshot: ${e.message}` }]
+            };
+        }
+    }
+);
+
+server.tool(
+    "close_session",
+    "closes the current browser session",
+    {},
+    async () => {
+        try {
+            const driver = getDriver();
+            await driver.quit();
+            state.drivers.delete(state.currentSession);
+            const sessionId = state.currentSession;
+            state.currentSession = null;
+            return {
+                content: [{ type: 'text', text: `Browser session ${sessionId} closed` }]
+            };
+        } catch (e) {
+            return {
+                content: [{ type: 'text', text: `Error closing session: ${e.message}` }]
             };
         }
     }

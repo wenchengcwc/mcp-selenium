@@ -417,6 +417,20 @@ Captures a screenshot of the current page.
 }
 ```
 
+### close_session
+Closes the current browser session and cleans up resources.
+
+**Parameters:**
+None required
+
+**Example:**
+```json
+{
+  "tool": "close_session",
+  "parameters": {}
+}
+```
+
 
 ## License
 
