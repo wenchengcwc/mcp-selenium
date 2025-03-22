@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -5,6 +7,7 @@ import pkg from 'selenium-webdriver';
 const { Builder, By, Key, until, Actions } = pkg;
 import { Options as ChromeOptions } from 'selenium-webdriver/chrome.js';
 import { Options as FirefoxOptions } from 'selenium-webdriver/firefox.js';
+
 
 // Create an MCP server
 const server = new McpServer({
