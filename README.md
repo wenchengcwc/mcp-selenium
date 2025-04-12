@@ -8,6 +8,11 @@
 
 A Model Context Protocol (MCP) server implementation for Selenium WebDriver, enabling browser automation through standardized MCP clients.
 
+## Video Demo (Click to Watch)
+
+[![Watch the video](https://img.youtube.com/vi/mRV0N8hcgYA/sddefault.jpg)](https://youtu.be/mRV0N8hcgYA)
+
+
 ## Features
 
 - Start browser sessions with customizable options
